@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Price Is Right - Korn Ferry Associates Edition</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Standard Firebase Compatibility SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;800;900&display=swap');
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: linear-gradient(135deg, #004D40 0%, #007A63 50%, #00A37A 100%);
+      color: #ffffff;
+      min-height: 100vh;
+    }
+    .kf-card {
+      background: rgba(255, 255, 255, 0.96);
+      color: #1a1a1a;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+    .pulse-btn {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-between min-h-screen p-4">
+
+  <!-- Header Bar -->
+  <header class="flex justify-between items-center bg-[#004D40]/80 backdrop-blur p-4 rounded-xl mb-4 border border-[#66B5A3]/30">
+    <div class="flex items-center space-x-3">
+      <div class="bg-white px-3 py-1.5 rounded-lg flex items-center justify-center shadow-sm">
+        <img src="https://www.consultancy.org/profile/media/korn-ferry-spotlight-2025-04-30-090953519.svg" alt="Korn Ferry Logo" class="h-6 w-auto object-contain">
+      </div>
+      <div>
+        <h1 class="text-xl md:text-2xl font-black tracking-wider text-white">THE PRICE IS RIGHT</h1>
+        <p class="text-xs text-emerald-200">Korn Ferry Associates Edition</p>
+      </div>
+    </div>
+    <div id="pinDisplay" class="hidden text-right">
+      <span class="text-xs uppercase text-emerald-200 font-bold tracking-widest block">Game PIN</span>
+      <span id="pinValue" class="text-2xl md:text-3xl font-black text-white tracking-wider">----</span>
+    </div>
+  </header>
+
+  <!-- SCREEN 1: ROLE SELECTION -->
+  <div id="roleScreen" class="max-w-md mx-auto my-auto w-full space-y-6 text-center">
+    <div class="kf-card p-8">
+      <div class="flex justify-center mb-4">
+        <div class="bg-white p-3 rounded-xl shadow-inner border border-gray-100 max-w-[220px]">
+          <img src="https://www.consultancy.org/profile/media/korn-ferry-spotlight-2025-04-30-090953519.svg" alt="Korn Ferry" class="w-full h-auto object-contain">
+        </div>
+      </div>
+      <h2 class="text-2xl font-extrabold mb-1 text-emerald-900">Korn Ferry Associates Edition</h2>
+      <p class="text-xs text-emerald-700 font-semibold mb-6">Interactive Team Competition</p>
+      <div class="space-y-4">
+        <button onclick="initHost()" class="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-lg rounded-xl shadow-lg transform active:scale-95 transition">
+          <i class="fa-solid fa-desktop mr-2"></i> HOST GAME (Projector)
+        </button>
+        <button onclick="initPlayer()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-xl shadow-lg transform active:scale-95 transition">
+          <i class="fa-solid fa-mobile-screen mr-2"></i> JOIN GAME (Phone)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2: HOST LOBBY -->
+  <div id="hostLobbyScreen" class="hidden max-w-4xl mx-auto w-full my-auto space-y-6 text-center">
+    <div class="kf-card p-6 md:p-8">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div class="flex flex-col items-center justify-center p-4 bg-emerald-50 rounded-xl">
+          <p class="text-sm font-bold text-emerald-900 mb-2">Scan QR Code on Phone to Join:</p>
+          <img id="qrCodeImg" class="w-56 h-56 rounded-lg shadow border-4 border-white" src="" alt="QR Code">
+          <p class="text-xs font-semibold text-gray-500 mt-2">or visit this URL and enter PIN</p>
+        </div>
+        <div class="space-y-4 text-left">
+          <div class="bg-emerald-100 p-4 rounded-xl border border-emerald-200">
+            <span class="text-xs font-bold text-emerald-800 uppercase tracking-widest">Players Joined</span>
+            <div class="text-5xl font-black text-emerald-950 mt-1" id="lobbyPlayerCount">0</div>
+          </div>
+          <p class="text-xs text-gray-500">Wait for all participants to join before starting.</p>
+          <button onclick="showRulesBeforeGame()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xl rounded-xl shadow-lg pulse-btn">
+            <i class="fa-solid fa-play mr-2"></i> START GAME NOW
+          </button>
+        </div>
+      </div>
+      <hr class="my-6 border-gray-200">
+      <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3 text-left">Live Player Roster</h3>
+      <div id="playerList" class="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN 2B: FULL-PAGE GAME RULES -->
+  <div id="rulesScreen" class="hidden w-full max-w-6xl mx-auto my-auto p-2 md:p-6 flex-1 flex flex-col justify-center">
+    <div class="kf-card p-8 md:p-12 space-y-8 text-center flex-1 flex flex-col justify-between">
+      <div>
+        <span class="text-6xl mb-2 block">📋</span>
+        <h2 class="text-4xl md:text-5xl font-black text-emerald-950 tracking-wide">HOW TO PLAY</h2>
+        <p class="text-sm md:text-base font-bold text-emerald-600 uppercase tracking-widest mt-2">Korn Ferry Associates Rules</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-auto text-left">
+        <div class="flex items-start space-x-4 bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200 shadow-sm">
+          <span class="bg-emerald-800 text-white text-2xl font-black w-12 h-12 flex items-center justify-center rounded-xl shrink-0">1</span>
+          <div>
+            <h3 class="text-xl font-black text-emerald-900 mb-1">Guess the Price</h3>
+            <p class="text-base text-gray-700 font-medium">Submit your best estimate for each FairPrice item on your phone.</p>
+          </div>
+        </div>
+
+        <div class="flex items-start space-x-4 bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200 shadow-sm">
+          <span class="bg-emerald-800 text-white text-2xl font-black w-12 h-12 flex items-center justify-center rounded-xl shrink-0">2</span>
+          <div>
+            <h3 class="text-xl font-black text-emerald-900 mb-1">Don't Overbid!</h3>
+            <p class="text-base text-gray-700 font-medium">Bidding even <strong>$0.01 higher</strong> than actual price earns <strong>0 points</strong>!</p>
+          </div>
+        </div>
+
+        <div class="flex items-start space-x-4 bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200 shadow-sm">
+          <span class="bg-emerald-800 text-white text-2xl font-black w-12 h-12 flex items-center justify-center rounded-xl shrink-0">3</span>
+          <div>
+            <h3 class="text-xl font-black text-emerald-900 mb-1">Proximity Scoring</h3>
+            <p class="text-base text-gray-700 font-medium">The closer your guess is under the actual price, the higher your score.</p>
+          </div>
+        </div>
+
+        <div class="flex items-start space-x-4 bg-emerald-50 p-6 rounded-2xl border-2 border-emerald-200 shadow-sm">
+          <span class="bg-emerald-800 text-white text-2xl font-black w-12 h-12 flex items-center justify-center rounded-xl shrink-0">4</span>
+          <div>
+            <h3 class="text-xl font-black text-emerald-900 mb-1">30s Timer</h3>
+            <p class="text-base text-gray-700 font-medium">You have 30 seconds per item to lock in your final answer.</p>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <button onclick="startGame()" class="w-full py-6 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-2xl md:text-3xl rounded-2xl shadow-xl pulse-btn transform active:scale-95 transition">
+          UNDERSTOOD, LET'S BEGIN! <i class="fa-solid fa-arrow-right ml-3"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 3: HOST GAME STAGE -->
+  <div id="hostGameScreen" class="hidden max-w-4xl mx-auto w-full my-auto space-y-6">
+    <div class="kf-card p-6 md:p-8">
+      <div class="flex flex-col md:flex-row gap-6 items-center">
+        <div class="w-52 h-52 p-2 bg-white rounded-2xl border-2 border-emerald-100 flex items-center justify-center shadow-sm shrink-0">
+          <img id="itemImg" src="" alt="Product" class="max-h-full max-w-full object-contain">
+        </div>
+        <div class="flex-1 space-y-2 text-center md:text-left">
+          <span id="itemCategory" class="inline-block px-3 py-1 bg-emerald-100 text-emerald-900 text-xs font-bold rounded-full uppercase">Category</span>
+          <h2 id="itemName" class="text-2xl md:text-3xl font-black text-gray-900">Item Name</h2>
+          <p id="itemDesc" class="text-sm text-gray-600">Description</p>
+          <p id="itemSource" class="text-xs font-bold text-emerald-800 bg-emerald-100 inline-block px-2 py-1 rounded">Source: NTUC FairPrice</p>
+        </div>
+        <div class="bg-emerald-900 text-white p-4 rounded-2xl text-center min-w-[120px] shadow-lg shrink-0 border border-emerald-300">
+          <span class="text-xs text-emerald-200 block font-bold uppercase tracking-wider">Time Left</span>
+          <span id="timerDisplay" class="text-4xl font-black text-white">30</span>
+        </div>
+      </div>
+
+      <div class="mt-8 bg-emerald-50 border-2 border-emerald-200 p-6 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="text-center md:text-left">
+          <span class="text-xs font-bold text-emerald-800 uppercase tracking-wider block">Live Submissions</span>
+          <div class="text-3xl font-black text-emerald-950">
+            <span id="submittedCount" class="text-emerald-700">0</span> / <span id="totalPlayersCount">0</span> Guesses In
+          </div>
+        </div>
+        <button onclick="revealAnswers()" class="w-full md:w-auto px-8 py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-lg rounded-xl shadow-lg pulse-btn">
+          <i class="fa-solid fa-lock mr-2"></i> LOCK & REVEAL ANSWERS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: HOST REVEAL & DUAL-COLUMN LEADERBOARD -->
+  <div id="hostRevealScreen" class="hidden max-w-6xl mx-auto w-full my-auto space-y-6 text-center">
+    <div class="kf-card p-6 md:p-8 space-y-6">
+      <div class="bg-emerald-600 text-white p-6 rounded-2xl shadow-inner">
+        <span class="text-xs font-extrabold uppercase tracking-widest block opacity-90">Actual NTUC FairPrice Price</span>
+        <div id="actualPriceDisplay" class="text-5xl md:text-6xl font-black mt-1">$0.00</div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+        <!-- COLUMN 1: TOP 5 ROUND LEADERBOARD -->
+        <div class="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200 flex flex-col">
+          <div class="flex justify-between items-center pb-3 border-b border-emerald-200 mb-3">
+            <h3 class="text-base font-black text-emerald-950 uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-stopwatch mr-2 text-emerald-700"></i> Round <span id="roundNumDisplay" class="mx-1">1</span> Results (Top 5)
+            </h3>
+            <span class="text-[10px] text-red-600 font-bold">*Overbids = 0 pts</span>
+          </div>
+          <div id="roundLeaderboardList" class="space-y-2.5"></div>
+        </div>
+
+        <!-- COLUMN 2: TOP 5 OVERALL LEADERBOARD -->
+        <div class="bg-emerald-100/60 p-5 rounded-2xl border border-emerald-300 flex flex-col">
+          <div class="flex justify-between items-center pb-3 border-b border-emerald-300 mb-3">
+            <h3 class="text-base font-black text-emerald-950 uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-trophy mr-2 text-emerald-800"></i> Overall Standings (Top 5)
+            </h3>
+            <span class="text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Cumulative</span>
+          </div>
+          <div id="overallLeaderboardList" class="space-y-2.5"></div>
+        </div>
+      </div>
+
+      <div class="flex gap-4 pt-2">
+        <button id="nextBtn" onclick="nextQuestion()" class="flex-1 py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-lg rounded-xl shadow-lg">
+          Next Item <i class="fa-solid fa-arrow-right ml-2"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN 4B: GRAND FINAL LEADERBOARD -->
+  <div id="hostFinalScreen" class="hidden max-w-4xl mx-auto w-full my-auto space-y-6 text-center">
+    <div class="kf-card p-6 md:p-8 space-y-6">
+      <div class="text-6xl">🏆</div>
+      <h2 class="text-3xl font-black text-emerald-950">Korn Ferry Associates Champions:</h2>
+      <p class="text-sm text-gray-500">Overall Standings Across All Rounds</p>
+
+      <div id="finalLeaderboardList" class="space-y-2 max-h-80 overflow-y-auto text-left"></div>
+
+      <button onclick="location.reload()" class="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-lg rounded-xl shadow-lg">
+        PLAY AGAIN
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN 5: PLAYER JOIN FORM -->
+  <div id="playerJoinScreen" class="hidden max-w-md mx-auto my-auto w-full space-y-4">
+    <div class="kf-card p-6 text-center space-y-4">
+      <div class="flex justify-center">
+        <div class="bg-white p-2 rounded-lg shadow-inner max-w-[180px]">
+          <img src="https://www.consultancy.org/profile/media/korn-ferry-spotlight-2025-04-30-090953519.svg" alt="Korn Ferry" class="w-full h-auto object-contain">
+        </div>
+      </div>
+      <h2 class="text-2xl font-black text-emerald-900">Korn Ferry Associates Edition</h2>
+      <input id="inputPin" type="number" placeholder="4-Digit Game PIN" class="w-full p-4 border-2 border-emerald-200 rounded-xl text-center text-xl font-bold tracking-widest focus:outline-none focus:border-emerald-600">
+      <input id="inputNickname" type="text" maxlength="15" placeholder="Your Nickname" class="w-full p-4 border-2 border-emerald-200 rounded-xl text-center text-xl font-bold focus:outline-none focus:border-emerald-600">
+      <button id="enterBtn" onclick="joinGame()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg rounded-xl shadow-lg transform active:scale-95 transition">
+        ENTER GAME
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN 6: PLAYER WAITING ROOM -->
+  <div id="playerWaitingScreen" class="hidden max-w-md mx-auto my-auto w-full text-center space-y-4">
+    <div class="kf-card p-8 space-y-4">
+      <div class="text-5xl animate-bounce">🎉</div>
+      <h2 class="text-2xl font-black text-emerald-900">You're In!</h2>
+      <p class="text-sm text-gray-600">See your name on the main projector screen. Game starting soon!</p>
+    </div>
+  </div>
+
+  <!-- SCREEN 7: PLAYER GUESS INPUT -->
+  <div id="playerInputScreen" class="hidden max-w-md mx-auto my-auto w-full space-y-4">
+    <div class="kf-card p-6 text-center space-y-5">
+      <div>
+        <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Submit Your Price Guess</span>
+        <h3 id="playerItemTitle" class="text-lg font-bold text-emerald-900">Item Name</h3>
+      </div>
+
+      <p class="text-xs text-emerald-700 font-semibold bg-emerald-50 py-1.5 px-3 rounded-lg border border-emerald-100">
+        <i class="fa-solid fa-keyboard mr-1"></i> Type your price below or tap quick-add buttons
+      </p>
+      
+      <div class="relative">
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-3xl font-black text-gray-400">$</span>
+        <input id="playerGuessInput" type="number" step="0.01" placeholder="0.00" class="w-full pl-12 pr-4 py-4 text-4xl font-black text-emerald-950 border-4 border-emerald-300 rounded-2xl text-center focus:outline-none focus:border-emerald-600">
+      </div>
+
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="addAmount(0.01)" class="py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black rounded-xl text-base shadow-sm active:scale-95 transition">+ $0.01</button>
+        <button onclick="addAmount(0.10)" class="py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black rounded-xl text-base shadow-sm active:scale-95 transition">+ $0.10</button>
+        <button onclick="addAmount(1.00)" class="py-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black rounded-xl text-base shadow-sm active:scale-95 transition">+ $1.00</button>
+      </div>
+
+      <button id="submitGuessBtn" onclick="submitGuess()" class="w-full py-4 bg-emerald-800 hover:bg-emerald-900 text-white font-black text-xl rounded-xl shadow-lg">
+        SUBMIT GUESS
+      </button>
+    </div>
+  </div>
+
+  <!-- SCREEN 8: PLAYER GUESS LOCKED -->
+  <div id="playerLockedScreen" class="hidden max-w-md mx-auto my-auto w-full text-center">
+    <div class="kf-card p-8 space-y-4">
+      <div class="text-5xl text-emerald-600"><i class="fa-solid fa-circle-check"></i></div>
+      <h2 id="lockedHeader" class="text-2xl font-black text-emerald-900">Guess Locked!</h2>
+      <p class="text-xl font-bold text-emerald-700" id="lockedGuessDisplay">$0.00</p>
+      <p id="lockedSubtext" class="text-xs text-gray-500">Look up at the main screen for results!</p>
+    </div>
+  </div>
+
+  <!-- SCREEN 8B: PLAYER ROUND RESULT -->
+  <div id="playerRoundResultScreen" class="hidden max-w-md mx-auto my-auto w-full text-center">
+    <div class="kf-card p-8 space-y-5">
+      <span class="text-xs font-black text-emerald-800 uppercase tracking-widest block">Round Results</span>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+          <span class="text-[10px] text-gray-500 font-bold uppercase block">Round Rank</span>
+          <div id="playerRoundRankDisplay" class="text-3xl font-black text-emerald-950 mt-1">#-</div>
+          <span id="playerRoundPts" class="text-xs font-bold text-emerald-700 block mt-1">+0 pts</span>
+        </div>
+        <div class="bg-emerald-100/60 p-4 rounded-2xl border border-emerald-300">
+          <span class="text-[10px] text-emerald-900 font-bold uppercase block">Overall Rank</span>
+          <div id="playerOverallRankDisplay" class="text-3xl font-black text-emerald-950 mt-1">#-</div>
+          <span id="playerTotalPts" class="text-xs font-bold text-gray-700 block mt-1">0 total pts</span>
+        </div>
+      </div>
+      <p id="playerResultNotice" class="text-xs font-bold text-emerald-800 bg-emerald-50 p-3 rounded-xl border border-emerald-100"></p>
+    </div>
+  </div>
+
+  <!-- SCREEN 9: PLAYER GAME OVER -->
+  <div id="playerGameOverScreen" class="hidden max-w-md mx-auto my-auto w-full text-center">
+    <div class="kf-card p-8 space-y-4">
+      <div class="text-6xl animate-bounce">🏁</div>
+      <h2 class="text-3xl font-black text-emerald-900">Game Over!</h2>
+      <p class="text-lg font-bold text-emerald-700">Look up at the main screen for the winners!</p>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBaJRejECntNcDjQ0MCaCJflxzd9hp8lkU",
+      authDomain: "price-is-right-b3eba.firebaseapp.com",
+      databaseURL: "https://price-is-right-b3eba-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "price-is-right-b3eba",
+      storageBucket: "price-is-right-b3eba.firebasestorage.app",
+      messagingSenderId: "716413846286",
+      appId: "1:716413846286:web:eec1a6d1f9e5254e6b0d5f"
+    };
+
+    let db;
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+    } catch(e) {
+      alert("Firebase Init Error: " + e.message);
+    }
+
+    const itemsDeck = [
+      {
+        name: "Milo Powder (1kg Bag)",
+        category: "Beverages",
+        desc: "Nestle Milo Activ-Go Malt Powder, 1kg pack.",
+        price: 12.95,
+        img: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=500&q=80"
+      },
+      {
+        name: "FairPrice Household Tissue (5 Packs)",
+        category: "Paper Products",
+        desc: "2-ply facial tissue, 200 sheets per box.",
+        price: 4.95,
+        img: "https://images.unsplash.com/photo-1584556812952-905ffd0c611a?auto=format&fit=crop&w=500&q=80"
+      },
+      {
+        name: "NutriSoya Fresh Soy Milk (1L)",
+        category: "Chilled Dairy",
+        desc: "Reduced sugar fresh soy milk with Calcium.",
+        price: 2.45,
+        img: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=500&q=80"
+      },
+      {
+        name: "Dynamo Concentrated Laundry Liquid (2.7kg)",
+        category: "Household Cleaning",
+        desc: "Power Gel Odour Removal Laundry Detergent.",
+        price: 13.85,
+        img: "https://images.unsplash.com/photo-1585830812416-a6c86bb14576?auto=format&fit=crop&w=500&q=80"
+      },
+      {
+        name: "Royal Umbrella Thai Jasmine Rice (5kg)",
+        category: "Staples",
+        desc: "100% Thai Hom Mali Jasmine Rice.",
+        price: 16.80,
+        img: "https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=500&q=80"
+      }
+    ];
+
+    let currentGamePin = null;
+    let playerKey = null;
+    let currentItemIndex = 0;
+    let cumulativeScores = {};
+    let timerInterval = null;
+
+    window.onload = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const pinParam = urlParams.get('pin');
+      if (pinParam) {
+        document.getElementById('inputPin').value = pinParam;
+        initPlayer();
+      }
+    };
+
+    function hideAllScreens() {
+      const screens = ['roleScreen', 'rulesScreen', 'hostLobbyScreen', 'hostGameScreen', 'hostRevealScreen', 'hostFinalScreen', 'playerJoinScreen', 'playerWaitingScreen', 'playerInputScreen', 'playerLockedScreen', 'playerRoundResultScreen', 'playerGameOverScreen'];
+      screens.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+    }
+
+    function initHost() {
+      hideAllScreens();
+      currentGamePin = Math.floor(1000 + Math.random() * 9000).toString();
+      document.getElementById('pinDisplay').classList.remove('hidden');
+      document.getElementById('pinValue').innerText = currentGamePin;
+
+      const currentUrl = window.location.href.split('?')[0];
+      const joinUrl = `${currentUrl}?pin=${currentGamePin}`;
+      document.getElementById('qrCodeImg').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(joinUrl)}`;
+
+      document.getElementById('hostLobbyScreen').classList.remove('hidden');
+
+      db.ref(`games/${currentGamePin}/players`).on('value', snapshot => {
+        const players = snapshot.val() || {};
+        const playerList = document.getElementById('playerList');
+        playerList.innerHTML = '';
+        let count = 0;
+
+        Object.values(players).forEach(p => {
+          count++;
+          const badge = document.createElement('span');
+          badge.className = 'px-3 py-1 bg-emerald-100 text-emerald-950 text-xs font-extrabold rounded-full shadow-sm';
+          badge.innerText = p.name;
+          playerList.appendChild(badge);
+        });
+
+        document.getElementById('lobbyPlayerCount').innerText = count;
+        document.getElementById('totalPlayersCount').innerText = count;
+      });
+
+      db.ref(`games/${currentGamePin}/state`).set({ status: 'lobby' });
+    }
+
+    function showRulesBeforeGame() {
+      hideAllScreens();
+      document.getElementById('rulesScreen').classList.remove('hidden');
+    }
+
+    function startGame() {
+      currentItemIndex = 0;
+      cumulativeScores = {};
+      loadItemStage(currentItemIndex);
+    }
+
+    function loadItemStage(index) {
+      hideAllScreens();
+      document.getElementById('hostGameScreen').classList.remove('hidden');
+
+      const item = itemsDeck[index];
+      document.getElementById('itemName').innerText = item.name;
+      document.getElementById('itemCategory').innerText = item.category;
+      document.getElementById('itemDesc').innerText = item.desc;
+      document.getElementById('itemImg').src = item.img;
+
+      db.ref(`games/${currentGamePin}/answers`).remove();
+
+      db.ref(`games/${currentGamePin}/state`).set({
+        status: 'guessing',
+        currentIndex: index,
+        itemName: item.name,
+        timeExpired: false
+      });
+
+      db.ref(`games/${currentGamePin}/answers`).on('value', snapshot => {
+        const answers = snapshot.val() || {};
+        document.getElementById('submittedCount').innerText = Object.keys(answers).length;
+      });
+
+      let timeLeft = 30;
+      document.getElementById('timerDisplay').innerText = timeLeft;
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timerDisplay').innerText = timeLeft;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          db.ref(`games/${currentGamePin}/state/timeExpired`).set(true);
+        }
+      }, 1000);
+    }
+
+    function revealAnswers() {
+      clearInterval(timerInterval);
+      hideAllScreens();
+      document.getElementById('hostRevealScreen').classList.remove('hidden');
+
+      const item = itemsDeck[currentItemIndex];
+      document.getElementById('actualPriceDisplay').innerText = `$${item.price.toFixed(2)}`;
+      document.getElementById('roundNumDisplay').innerText = currentItemIndex + 1;
+
+      db.ref(`games/${currentGamePin}`).once('value', snapshot => {
+        const data = snapshot.val() || {};
+        const players = data.players || {};
+        const answers = data.answers || {};
+
+        let roundList = [];
+
+        Object.keys(players).forEach(pKey => {
+          const playerName = players[pKey].name;
+          const pAns = answers[pKey];
+
+          if (!pAns || typeof pAns.guess !== 'number') {
+            roundList.push({ key: pKey, name: playerName, guess: 0, points: 0, diff: 999, reason: "No Guess" });
+          } else {
+            const guess = pAns.guess;
+            if (guess > item.price) {
+              roundList.push({ key: pKey, name: playerName, guess: guess, points: 0, diff: 999, reason: "Overbid" });
+            } else {
+              const diff = item.price - guess;
+              let pts = Math.max(10, Math.round(1000 - (diff * 100)));
+              cumulativeScores[playerName] = (cumulativeScores[playerName] || 0) + pts;
+              roundList.push({ key: pKey, name: playerName, guess: guess, points: pts, diff: diff });
+            }
+          }
+        });
+
+        let roundSorted = [...roundList].sort((a, b) => b.points - a.points || a.diff - b.diff);
+        const roundLb = document.getElementById('roundLeaderboardList');
+        roundLb.innerHTML = '';
+
+        roundSorted.slice(0, 5).forEach((s, idx) => {
+          const row = document.createElement('div');
+          const isOver = s.reason === "Overbid";
+          row.className = `flex justify-between items-center p-3 rounded-xl border text-sm ${isOver ? 'bg-red-50 border-red-200' : 'bg-white border-emerald-100 shadow-sm'}`;
+          row.innerHTML = `
+            <div class="flex items-center space-x-3">
+              <span class="w-6 text-center font-black ${isOver ? 'text-red-500' : 'text-emerald-800'}">#${idx + 1}</span>
+              <span class="font-bold text-gray-900 truncate max-w-[140px]">${s.name} ($${s.guess.toFixed(2)})</span>
+            </div>
+            <span class="font-black text-base ${isOver ? 'text-red-600' : 'text-emerald-900'}">${s.points > 0 ? '+' + s.points + ' pts' : '0 pts'}</span>
+          `;
+          roundLb.appendChild(row);
+        });
+
+        let overallSorted = [...roundList].sort((a, b) => (cumulativeScores[b.name]||0) - (cumulativeScores[a.name]||0));
+        const overallLb = document.getElementById('overallLeaderboardList');
+        overallLb.innerHTML = '';
+
+        let playerRankMap = {};
+
+        overallSorted.forEach((s, idx) => {
+          let roundRank = roundSorted.findIndex(r => r.key === s.key) + 1;
+          playerRankMap[s.key] = {
+            roundRank: roundRank,
+            overallRank: idx + 1,
+            points: s.points,
+            total: cumulativeScores[s.name] || 0,
+            reason: s.reason || null
+          };
+        });
+
+        overallSorted.slice(0, 5).forEach((s, idx) => {
+          const row = document.createElement('div');
+          row.className = `flex justify-between items-center p-3 rounded-xl border text-sm bg-white border-emerald-200 shadow-sm`;
+          row.innerHTML = `
+            <div class="flex items-center space-x-3">
+              <span class="w-6 text-center font-black text-emerald-800">#${idx + 1}</span>
+              <span class="font-bold text-gray-900 truncate max-w-[150px]">${s.name}</span>
+            </div>
+            <span class="font-black text-base text-emerald-950">${cumulativeScores[s.name] || 0} pts</span>
+          `;
+          overallLb.appendChild(row);
+        });
+
+        try { confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } }); } catch(e){}
+
+        db.ref(`games/${currentGamePin}/state`).set({
+          status: 'revealed',
+          ranks: playerRankMap
+        });
+      });
+    }
+
+    function nextQuestion() {
+      currentItemIndex++;
+      if (currentItemIndex < itemsDeck.length) {
+        loadItemStage(currentItemIndex);
+      } else {
+        showFinalLeaderboard();
+      }
+    }
+
+    function showFinalLeaderboard() {
+      hideAllScreens();
+      document.getElementById('hostFinalScreen').classList.remove('hidden');
+
+      db.ref(`games/${currentGamePin}/state`).set({ status: 'gameover' });
+
+      const finalRankings = Object.keys(cumulativeScores).map(name => ({
+        name: name,
+        score: cumulativeScores[name]
+      })).sort((a, b) => b.score - a.score);
+
+      const finalLb = document.getElementById('finalLeaderboardList');
+      finalLb.innerHTML = '';
+
+      finalRankings.forEach((r, idx) => {
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`;
+        const row = document.createElement('div');
+        row.className = `flex justify-between items-center p-4 rounded-xl border-2 bg-emerald-50 border-emerald-100`;
+        row.innerHTML = `
+          <div class="flex items-center space-x-4">
+            <span class="text-2xl font-black">${medal}</span>
+            <span class="text-lg font-black text-gray-900">${r.name}</span>
+          </div>
+          <span class="text-xl font-black text-emerald-950">${r.score} PTS</span>
+        `;
+        finalLb.appendChild(row);
+      });
+
+      try { confetti({ particleCount: 250, spread: 120, origin: { y: 0.5 } }); } catch(e){}
+    }
+
+    function initPlayer() {
+      hideAllScreens();
+      document.getElementById('playerJoinScreen').classList.remove('hidden');
+    }
+
+    function joinGame() {
+      const pin = document.getElementById('inputPin').value.trim();
+      const nickname = document.getElementById('inputNickname').value.trim();
+      if (!pin || !nickname) return alert("Enter PIN and Nickname");
+
+      currentGamePin = pin;
+      playerKey = 'player_' + Math.random().toString(36).substr(2, 9);
+
+      db.ref(`games/${pin}/players/${playerKey}`).set({ name: nickname }).then(() => {
+        hideAllScreens();
+        document.getElementById('playerWaitingScreen').classList.remove('hidden');
+        listenToGameState();
+      });
+    }
+
+    function listenToGameState() {
+      db.ref(`games/${currentGamePin}/state`).on('value', snapshot => {
+        const state = snapshot.val();
+        if (!state) return;
+
+        if (state.status === 'guessing') {
+          hideAllScreens();
+          document.getElementById('playerInputScreen').classList.remove('hidden');
+          document.getElementById('playerItemTitle').innerText = state.itemName;
+        } else if (state.status === 'revealed') {
+          hideAllScreens();
+          document.getElementById('playerRoundResultScreen').classList.remove('hidden');
+          if (state.ranks && state.ranks[playerKey]) {
+            const myData = state.ranks[playerKey];
+            document.getElementById('playerRoundRankDisplay').innerText = `#${myData.roundRank}`;
+            document.getElementById('playerOverallRankDisplay').innerText = `#${myData.overallRank}`;
+            document.getElementById('playerRoundPts').innerText = `+${myData.points} pts`;
+            document.getElementById('playerTotalPts').innerText = `${myData.total} total pts`;
+
+            const notice = document.getElementById('playerResultNotice');
+            if (myData.reason === "Overbid") {
+              notice.innerText = "❌ You overbid! 0 points awarded.";
+            } else if (myData.reason === "No Guess") {
+              notice.innerText = "⚠️ Time expired before submitting a guess.";
+            } else {
+              notice.innerText = "🎉 Valid bid! Points awarded based on proximity.";
+            }
+          }
+        } else if (state.status === 'gameover') {
+          hideAllScreens();
+          document.getElementById('playerGameOverScreen').classList.remove('hidden');
+        }
+      });
+    }
+
+    function addAmount(val) {
+      const input = document.getElementById('playerGuessInput');
+      let curr = parseFloat(input.value) || 0;
+      input.value = (curr + val).toFixed(2);
+    }
+
+    function submitGuess() {
+      const val = parseFloat(document.getElementById('playerGuessInput').value);
+      if (isNaN(val) || val < 0) return alert("Please enter a valid price");
+
+      db.ref(`games/${currentGamePin}/answers/${playerKey}`).set({ guess: val }).then(() => {
+        hideAllScreens();
+        document.getElementById('playerLockedScreen').classList.remove('hidden');
+        document.getElementById('lockedGuessDisplay').innerText = `$${val.toFixed(2)}`;
+      });
+    }
+  </script>
+</body>
+</html>
